@@ -1,0 +1,32 @@
+[package]
+name = "photocraft-ios"
+description = "PhotoCraft for iPadOS: the iOS app shell (eframe/winit + the shared engine and UI)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+name = "photocraft_ios"
+# The Xcode app links the Rust code as a static library and calls `start_photocraft` from its
+# C `main` (see `ios/Sources/main.m`).
+crate-type = ["staticlib"]
+
+# The workspace sets `unsafe_code = "forbid"`, which also rejects the `#[unsafe(no_mangle)]`
+# attribute our C entry point needs. List the lints explicitly so that one attribute is allowed
+# while everything else matches the workspace's strictness.
+[lints.rust]
+unsafe_code = "deny"
+[lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+
+[dependencies]
+photocraft-engine = { workspace = true }
+photocraft-doc = { workspace = true }
+photocraft-io = { workspace = true }
+photocraft-codecs = { workspace = true }
+photocraft-ui-egui = { workspace = true }
+egui = { workspace = true }
+eframe = { workspace = true, features = ["wgpu"] }
+log = { workspace = true }
