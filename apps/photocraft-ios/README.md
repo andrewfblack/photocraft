@@ -59,7 +59,9 @@ PowerShell users: the workflow in `.github/workflows/ios.yml` runs the same step
 ## Status / roadmap
 
 - [x] Fork + scaffold: Rust crate, Xcode project, CI
-- [ ] CI green: staticlib builds for `aarch64-apple-ios`; Xcode links an (unsigned) `.app`
+- [x] CI green: staticlib builds for `aarch64-apple-ios`; Xcode links an (unsigned) `.app`
+      (run [38622509008](https://github.com/andrewfblack/photocraft/actions/runs/38622509008),
+      produced a 56 MB arm64 `PhotoCraft.app`)
 - [ ] Boot on the iPad simulator / device
 - [ ] Native services: `UIDocumentPicker` (Open/Save), `UIPasteboard`, `UIApplication.openURL`
 - [ ] Apple Pencil → `PhotocraftApp::stylus` feed (pressure / tilt / roll)
