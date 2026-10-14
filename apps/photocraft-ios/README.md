@@ -63,12 +63,11 @@ Connect API key, and the same secrets layout as the other repos.
 
 **One-time setup**
 
-1. **App ID:** register `ai.storyteller.photocraft` at developer.apple.com (or `fastlane produce`).
-   `match` fails if the App ID does not exist.
-2. **App Store Connect app record:** create the app for that bundle ID (needed for TestFlight).
-3. **App Store Connect API key** (Users and Access → Integrations → App Store Connect API → Team
+1. **App ID + App Store Connect app:** created automatically by the lane's `produce` step on first
+   run (non-fatal if they already exist). You can also create the App ID at developer.apple.com.
+2. **App Store Connect API key** (Users and Access → Integrations → App Store Connect API → Team
    Keys), with **App Manager** access. Download the `.p8` once.
-4. **GitHub secrets** (Settings → Secrets and variables → Actions):
+3. **GitHub secrets** (Settings → Secrets and variables → Actions):
 
    | Secret | Value |
    | --- | --- |
@@ -81,24 +80,15 @@ Connect API key, and the same secrets layout as the other repos.
    | `MATCH_PASSWORD` | the match repo's encryption passphrase |
    | `MATCH_GIT_BASIC_AUTHORIZATION` | `printf 'x-access-token:<PAT>' \| base64` |
 
-**Resetting the match repo** (the current `match-signing` was encrypted with a lost password, so its
-contents are unrecoverable):
-
-```sh
-# 1. Empty the repo (the encrypted files are useless without the old password).
-git clone https://github.com/andrewfblack/match-signing.git && cd match-signing
-git rm -r certs profiles match_version.txt
-git commit -m "reset: lost match password" && git push
-
-# 2. Save a NEW passphrase somewhere safe and set it as the MATCH_PASSWORD secret.
-#    (The previous one is what was lost — keep this one.)
-# 3. The next `push_to_testflight` run regenerates the distribution certificate and App Store
-#    profile (match runs with readonly: false) and stores them encrypted in the repo.
-```
+**Match repo reset (done, 2026-10-14).** `certs/`, `profiles/` and `match_version.txt` were removed
+from `andrewfblack/match-signing` — they were encrypted with a lost passphrase and unrecoverable.
+**Set a new `MATCH_PASSWORD`** and keep it somewhere safe; the next `push_to_testflight` run
+regenerates the distribution certificate and App Store profile (`match` runs `readonly: false`) and
+writes them back encrypted.
 
 If the account has hit its certificate limit, revoke the stale ones in the portal, or run
 `fastlane match nuke distribution` (it uses the API key and does not need the old password).
-`match-signing` is shared, so emptying it also re-provisions Alt-Mobile-Play on its next run.
+`match-signing` is shared, so its reset also re-provisions Alt-Mobile-Play on its next run.
 
 ## Status / roadmap
 

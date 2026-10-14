@@ -39,9 +39,26 @@ platform :ios do
       is_key_content_base64: true
     )
 
+    # Create the App ID and the App Store Connect app on first run: `match` will not create the
+    # App ID, and TestFlight needs the App Store Connect app record. Non-fatal, so later runs
+    # (when both already exist) continue instead of failing.
+    begin
+      produce(
+        app_identifier: APP_IDENTIFIER,
+        app_name: "PhotoCraft",
+        language: "en-US",
+        team_id: ENV["TEAM_ID"],
+        api_key: api_key,
+        skip_itc: false
+      )
+    rescue => e
+      UI.important("produce: #{e.message}")
+      UI.important("Continuing — the App ID and App Store Connect app may already exist.")
+    end
+
     # Certificates and provisioning profiles from the encrypted match repo. `readonly: false`
     # means the first run creates a distribution certificate and the App Store profile for
-    # `APP_ID` (the App ID and the App Store Connect app record must already exist).
+    # `APP_ID` (the App ID itself was just ensured by `produce` above).
     match(
       type: "appstore",
       app_identifier: APP_IDENTIFIER,
