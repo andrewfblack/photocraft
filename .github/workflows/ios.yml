@@ -3,27 +3,34 @@ name: iOS
 # Builds the iPadOS app on a GitHub-hosted macOS runner.
 #
 # Phase 1 pins the Xcode 26 / iOS 26 SDK: the iOS 27 SDK requires the UIScene life cycle, which
-# winit's iOS backend does not support yet (rust-windowing/winit#4224). The macOS 26 runner ships
-# Xcode 26.0.1–26.6 (iOS SDKs up to 26.5); pinning 26.6 satisfies Apple's recent-SDK rule while
-# keeping the classic life cycle legal. See apps/photocraft-ios/README.md.
+# winit's iOS backend does not support yet (rust-windowing/winit#4224). See
+# apps/photocraft-ios/README.md. When Xcode 27 becomes mandatory, move to winit 0.31 or a
+# hand-rolled UIKit shell — only apps/photocraft-ios/src/shell changes.
 on:
   push:
     branches: [ios]
   pull_request:
     branches: [ios]
   workflow_dispatch:
+    inputs:
+      upload_testflight:
+        description: "Sign the app and upload it to TestFlight"
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: ios-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  XCODE_APP: /Applications/Xcode_26.6.app
+
 jobs:
   build:
+    name: Build (unsigned)
     runs-on: macos-26
-    env:
-      XCODE_APP: /Applications/Xcode_26.6.app
-      # The Rust workspace's MSRV; the runner's stable toolchain is newer, which is fine.
-      CARGO_TERM_COLOR: always
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
 
@@ -42,11 +49,6 @@ jobs:
 
       - name: Build the Rust static library (device)
         run: cargo build --release -p photocraft-ios --target aarch64-apple-ios
-
-      - name: Show the native libraries the staticlib needs (reference)
-        continue-on-error: true
-        run: |
-          cargo rustc --release -p photocraft-ios --target aarch64-apple-ios -- --print native-static-libs
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -74,3 +76,50 @@ jobs:
           name: PhotoCraft-app
           path: ios/build/Build/Products/Release-iphoneos/PhotoCraft.app
           if-no-files-found: warn
+
+  testflight:
+    name: Sign & upload to TestFlight
+    if: github.event_name == 'workflow_dispatch' && inputs.upload_testflight
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      APP_ID: ${{ secrets.APP_ID }}
+      TEAM_ID: ${{ secrets.TEAM_ID }}
+      APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
+      APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
+      APPLE_KEY_CONTENT: ${{ secrets.APPLE_KEY_CONTENT }}
+      MATCH_REPOSITORY: ${{ secrets.MATCH_REPOSITORY }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Select Xcode 26.6 (iOS 26 SDK)
+        run: |
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+
+      - name: Install Rust + iOS target
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add aarch64-apple-ios
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+
+      - name: Install fastlane
+        run: bundle install
+
+      # match authenticates the signing repo with an Authorization header; the credential helper
+      # would otherwise try (and fail) to ask for a password.
+      - name: Disable Git Credential Manager
+        run: git config --global credential.helper ""
+
+      - name: Build, sign and upload
+        run: bundle exec fastlane ios push_to_testflight
